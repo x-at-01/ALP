@@ -70,7 +70,7 @@ BenchSpeedResult ALPBench::typed_bench_speed_column(const std::vector<PT>& data)
 
 // benchmark alp encode
 #ifdef NDEBUG
-	uint64_t iterations = 30000;
+	uint64_t iterations = 1000;
 #else
 	uint64_t iterations = 1;
 #endif
@@ -81,27 +81,28 @@ BenchSpeedResult ALPBench::typed_bench_speed_column(const std::vector<PT>& data)
 
 	switch (stt.scheme) {
 	case alp::Scheme::ALP_RD: {
-		alp::rd_encoder<PT>::init(data_arr, 0, 1024, sample_arr, stt);
-
-		uint64_t cycles = benchmark::cycleclock::Now();
+		auto t0_enc = std::chrono::high_resolution_clock::now();
 		for (uint64_t i = 0; i < iterations; ++i) {
+			alp::rd_encoder<PT>::init(data_arr, 0, 1024, sample_arr, stt);
 			alp::rd_encoder<PT>::encode(data_arr, rd_exc_arr, pos_arr, exc_c_arr, right_arr, left_arr, stt);
 			ffor::ffor(right_arr, ffor_right_arr, stt.right_bit_width, &stt.right_for_base);
 			ffor::ffor(left_arr, ffor_left_arr, stt.left_bit_width, &stt.left_for_base);
 		}
-		cycles                   = benchmark::cycleclock::Now() - cycles;
-		result.compression_speed = double(cycles) / (double(iterations) * VECTOR_SIZE);
+		auto t1_enc = std::chrono::high_resolution_clock::now();
+		double dt_enc = std::chrono::duration<double, std::nano>(t1_enc - t0_enc).count();
+		result.compression_speed = (double(iterations) * VECTOR_SIZE * sizeof(PT)) / dt_enc;
 
 		// Decode
-		cycles = benchmark::cycleclock::Now();
+		auto t0_dec = std::chrono::high_resolution_clock::now();
 		for (uint64_t i = 0; i < iterations; ++i) {
 			unffor::unffor(ffor_right_arr, unffor_right_arr, stt.right_bit_width, &stt.right_for_base);
 			unffor::unffor(ffor_left_arr, unffor_left_arr, stt.left_bit_width, &stt.left_for_base);
 			alp::rd_encoder<PT>::decode(
 			    glue_arr, unffor_right_arr, unffor_left_arr, rd_exc_arr, pos_arr, exc_c_arr, stt);
 		}
-		cycles                     = benchmark::cycleclock::Now() - cycles;
-		result.decompression_speed = double(cycles) / (double(iterations) * VECTOR_SIZE);
+		auto t1_dec = std::chrono::high_resolution_clock::now();
+		double dt_dec = std::chrono::duration<double, std::nano>(t1_dec - t0_dec).count();
+		result.decompression_speed = (double(iterations) * VECTOR_SIZE * sizeof(PT)) / dt_dec;
 
 		for (size_t j = 0; j < VECTOR_SIZE; ++j) {
 			auto l = data_arr[j];
@@ -113,26 +114,26 @@ BenchSpeedResult ALPBench::typed_bench_speed_column(const std::vector<PT>& data)
 
 		stt.bit_width = 10;
 
-		uint64_t cycles = benchmark::cycleclock::Now();
+		auto t0_enc = std::chrono::high_resolution_clock::now();
 		for (uint64_t i = 0; i < iterations; ++i) {
+			alp::encoder<PT>::init(data.data(), 0, 1024, sample_arr, stt);
 			alp::encoder<PT>::encode(data_arr, exc_arr, pos_arr, exc_c_arr, encoded_arr, stt);
 			alp::encoder<PT>::analyze_ffor(encoded_arr, stt.bit_width, base_arr);
 			ffor::ffor(encoded_arr, ffor_arr, stt.bit_width, base_arr);
 		}
+		auto t1_enc = std::chrono::high_resolution_clock::now();
+		double dt_enc = std::chrono::duration<double, std::nano>(t1_enc - t0_enc).count();
+		result.compression_speed = (double(iterations) * VECTOR_SIZE * sizeof(PT)) / dt_enc;
 
-		cycles                   = benchmark::cycleclock::Now() - cycles;
-		result.compression_speed = double(cycles) / (double(iterations) * VECTOR_SIZE);
-
-		cycles = benchmark::cycleclock::Now();
-
+		auto t0_dec = std::chrono::high_resolution_clock::now();
 		for (uint64_t i = 0; i < iterations; ++i) {
 			unffor::unffor(ffor_arr, unffor_arr, stt.bit_width, base_arr);
 			alp::decoder<PT>::decode(unffor_arr, stt.fac, stt.exp, decoded_arr);
 			alp::decoder<PT>::patch_exceptions(decoded_arr, exc_arr, pos_arr, exc_c_arr);
 		}
-
-		cycles                     = benchmark::cycleclock::Now() - cycles;
-		result.decompression_speed = double(cycles) / (double(iterations) * VECTOR_SIZE);
+		auto t1_dec = std::chrono::high_resolution_clock::now();
+		double dt_dec = std::chrono::duration<double, std::nano>(t1_dec - t0_dec).count();
+		result.decompression_speed = (double(iterations) * VECTOR_SIZE * sizeof(PT)) / dt_dec;
 
 		for (size_t idx = 0; idx < VECTOR_SIZE; idx++) {
 			auto original_value = data.data()[idx];
