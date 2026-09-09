@@ -1,14 +1,16 @@
 find_program(CARGO_BIN cargo)
 
 if (NOT DEFINED FASTALP_DIR)
-    if (EXISTS "${CMAKE_SOURCE_DIR}/../wedb_embed/fastalp/Cargo.toml")
+    if (EXISTS "${CMAKE_SOURCE_DIR}/../fastalp/fastalp/Cargo.toml")
+        set(FASTALP_DIR "${CMAKE_SOURCE_DIR}/../fastalp/fastalp")
+    elseif (EXISTS "${CMAKE_SOURCE_DIR}/../wedb_embed/fastalp/Cargo.toml")
         set(FASTALP_DIR "${CMAKE_SOURCE_DIR}/../wedb_embed/fastalp")
     else ()
         include(FetchContent)
         FetchContent_Declare(
             fastalp_src
-            GIT_REPOSITORY https://github.com/webc-site/wedb_embed.git
-            GIT_TAG main
+            GIT_REPOSITORY https://github.com/webc-site/fastalp.git
+            GIT_TAG v0.1.42
             SOURCE_SUBDIR fastalp
         )
         FetchContent_GetProperties(fastalp_src)
